@@ -1,4 +1,4 @@
-# 🧪 Rust Bootloader (Bare Metal)
+# 🧪 RustyBoot
 
 This is a minimal 512-byte bootloader written in **pure Rust**, built from scratch without `std`, that boots via BIOS and prints a message over the serial port.
 
