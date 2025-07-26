@@ -1,27 +1,33 @@
-# 🧪 RustyBoot
+# RustyBoot
 
-This is a minimal 512-byte bootloader written in **pure Rust**, built from scratch without `std`, that boots via BIOS and prints a message over the serial port.
+**RustyBoot** is a simple experimental bootloader written in Rust.  
+It's an early-stage project that aims to eventually boot into `ext` partitions.
 
-## 🚀 What it does
+---
 
-- Compiles a Rust program with no OS or standard library.
-- Builds a 512-byte bootable binary with a valid `0x55AA` signature.
-- Boots using BIOS (SeaBIOS in QEMU).
-- Outputs `Hello from bootloader!` over serial (COM1).
+## 🚧 Status
 
-## 🛠 Requirements
+> ⚠️ This bootloader is still under development and may not work as expected.  
+> Use it for learning or experimentation only!
 
-- Rust Nightly (`rustup install nightly`)
-- LLVM tools (`llvm-objcopy`)
-- QEMU
-- `cargo-binutils` (optional)
+---
 
-## 🧪 How to Build
+## 🛠️ Build & Run
+
+This project uses a `Makefile` for easy building and testing.
+
+### Requirements
+
+- Rust (nightly)
+- `cargo`
+- `llvm-objcopy`
+- `qemu`
+- `make`
+
+### Commands
 
 ```bash
-cargo +nightly build -Z build-std=core --release
-llvm-objcopy -O binary target/x86_64-boot/release/bootloader bootloader.bin
-truncate -s 510 bootloader.bin
-echo -ne '\x55\xAA' >> bootloader.bin
-dd if=/dev/zero of=disk.img bs=512 count=2880
-dd if=bootloader.bin of=disk.img conv=notrunc
+make bootloader   # Builds the bootloader binary
+make run          # Runs it using QEMU
+```
+### BUILT WITH ❤️ IN RUST
