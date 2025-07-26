@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 # === Cargo.toml ===
->>>>>>> 4261a8a (A bootloader in Rust with capabilities to boot into ext partitions)
 [package]
 name = "RustyBoot"
 version = "0.1.0"
@@ -14,8 +11,7 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
-<<<<<<< HEAD
-=======
+
 lto = true
 codegen-units = 1
 
@@ -23,4 +19,3 @@ codegen-units = 1
 name = "RustyBoot"
 test = false
 bench = false
->>>>>>> 4261a8a (A bootloader in Rust with capabilities to boot into ext partitions)

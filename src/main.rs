@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-<<<<<<< HEAD
 
 use core::panic::PanicInfo;
 
@@ -18,7 +17,6 @@ pub extern "C" fn _start() -> ! {
         }
     }
 
-=======
 //#![feature(asm_const)]
 
 use core::panic::PanicInfo;
@@ -68,6 +66,5 @@ pub extern "C" fn _start() -> ! {
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     drivers::vga::print_string("PANIC: Bootloader panic occurred\n");
->>>>>>> 4261a8a (A bootloader in Rust with capabilities to boot into ext partitions)
     loop {}
 }
