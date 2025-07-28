@@ -1,22 +1,26 @@
 [build]
-<<<<<<< HEAD
 target = "x86_64-boot.json"
 
 [target.x86_64-boot]
 linker = "ld.lld"
 rustflags = "-C link-arg=-Tlinker.ld"
-=======
 target = "i686-unknown-linux-gnu"
 
 [target.i686-unknown-linux-gnu]
 linker = "ld"
 rustflags = [
-    "-C", "link-arg=-nostdlib",
-    "-C", "link-arg=-static",
-    "-C", "link-arg=-m",
-    "-C", "link-arg=elf_i386",
-    "-C", "link-arg=--build-id=none",
-    "-C", "relocation-model=static",
-    "-C", "panic=abort",
+    "-C",
+    "link-arg=-nostdlib",
+    "-C",
+    "link-arg=-static",
+    "-C",
+    "link-arg=-m",
+    "-C",
+    "link-arg=elf_i386",
+    "-C",
+    "link-arg=--build-id=none",
+    "-C",
+    "relocation-model=static",
+    "-C",
+    "panic=abort",
 ]
->>>>>>> 4261a8a (A bootloader in Rust with capabilities to boot into ext partitions)
