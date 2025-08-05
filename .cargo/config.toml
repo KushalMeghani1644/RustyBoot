@@ -1,26 +1,21 @@
 [build]
-target = "x86_64-boot.json"
+target = "i686-bootloader.json"
 
-[target.x86_64-boot]
+[target.i686-bootloader]
 linker = "ld.lld"
-rustflags = "-C link-arg=-Tlinker.ld"
-target = "i686-unknown-linux-gnu"
-
-[target.i686-unknown-linux-gnu]
-linker = "ld"
 rustflags = [
+    "-C",
+    "link-arg=-Tlinker.ld",
+    "-C",
+    "relocation-model=static",
     "-C",
     "link-arg=-nostdlib",
     "-C",
     "link-arg=-static",
     "-C",
-    "link-arg=-m",
-    "-C",
     "link-arg=elf_i386",
     "-C",
     "link-arg=--build-id=none",
-    "-C",
-    "relocation-model=static",
     "-C",
     "panic=abort",
 ]

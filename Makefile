@@ -1,4 +1,4 @@
-RUST_TARGET = i686-unknown-linux-gnu
+RUST_TARGET := i686-bootloader.json
 BUILD_DIR = target/$(RUST_TARGET)/release
 BINARY_NAME = RustyBoot
 

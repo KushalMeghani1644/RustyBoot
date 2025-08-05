@@ -3,24 +3,6 @@
 
 use core::panic::PanicInfo;
 
-#[panic_handler]
-fn panic(_: &PanicInfo) -> ! {
-    loop {}
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
-    let msg = b"Hello from bootloader!\n";
-    for &b in msg {
-        unsafe {
-            core::arch::asm!("out dx, al", in("dx") 0x3F8u16, in("al") b);
-        }
-    }
-
-//#![feature(asm_const)]
-
-use core::panic::PanicInfo;
-
 mod boot;
 mod drivers;
 mod fs;
@@ -29,17 +11,25 @@ mod memory;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
-    // Initialize VGA text mode for output
+    // Basic Serial Output (optional early output)
+    let msg = b"Hello from bootloader!\n";
+    for &b in msg {
+        unsafe {
+            core::arch::asm!("out dx, al", in("dx") 0x3F8u16, in("al") b);
+        }
+    }
+
+    // VGA Output
     drivers::vga::init();
     drivers::vga::print_string("RustyBoot v0.1.0 - Initializing...\n");
 
-    // Initialize memory management
+    // Init Memory
     memory::init();
 
-    // Initialize disk drivers
+    // Init Disk
     drivers::disk::init();
 
-    // Load and parse filesystem
+    // Init Filesystem
     match fs::ext::init() {
         Ok(_) => drivers::vga::print_string("EXT filesystem detected\n"),
         Err(_) => {
@@ -51,7 +41,7 @@ pub extern "C" fn _start() -> ! {
         }
     }
 
-    // Search for kernel
+    // Kernel Loading
     drivers::vga::print_string("Searching for kernel...\n");
     match kernel::loader::find_and_load_kernel() {
         Ok(kernel_entry) => {
