@@ -1,33 +1,45 @@
 # RustyBoot
 
-**RustyBoot** is a simple experimental bootloader written in Rust.  
-It's an early-stage project that aims to eventually boot into `ext` partitions.
+**RustyBoot** is a low-level bootloader written in **Rust**, designed to boot from **EXT-based partitions** (ext2/ext3/ext4).  
+It currently supports **detecting EXT partitions** by reading and parsing the on-disk **superblock**, with plans to load kernel files in the future.
+
+This project is a part of the [Rusty-Suite](https://github.com/KushalMeghani1644) and is built for learning, experimentation, and low-level OS development.
 
 ---
 
 ## 🚧 Status
 
-> ⚠️ This bootloader is still under development and may not work as expected.  
-> Use it for learning or experimentation only!
+🚀 **EXT superblock reading implemented!**
+
+✅ Reads disk sectors directly  
+✅ Detects EXT2/3/4 partitions by parsing the superblock  
+❌ Kernel loading not implemented yet
+
+⚠️ This bootloader is still **under active development**.  
+Use it only for educational or experimental purposes.
 
 ---
 
 ## 🛠️ Build & Run
 
-This project uses a `Makefile` for easy building and testing.
+This project uses a **Makefile** to simplify building and running the bootloader.
 
-### Requirements
+### 🔧 Requirements
 
-- Rust (nightly)
-- `cargo`
-- `llvm-objcopy`
-- `qemu`
+- `rustup` with **Rust nightly**  
+- `cargo-xbuild` (for building core/kernel without std)  
+- `llvm-objcopy`  
+- `qemu`  
 - `make`
 
-### Commands
+You also need to install `bootimage`:
 
 ```bash
-make bootloader   # Builds the bootloader binary
-make run          # Runs it using QEMU
+rustup component add llvm-tools-preview
+cargo +nightly build -Z build-std=core --target i686-bootloader.json
+truncate -s 510 RustyBoot.bin
+echo -ne '\x55\xAA' >> RustyBoot.bin
+qemu-system-i386 -drive format=raw,file=RustyBoot.bin -nographic
 ```
-### BUILT WITH ❤️ IN RUST
+
+# BUILT WITH ❤️ IN RUST
