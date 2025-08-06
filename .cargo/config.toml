@@ -1,21 +1,16 @@
 [build]
 target = "i686-bootloader.json"
 
+[unstable]
+build-std = ["core", "compiler_builtins"]
+
 [target.i686-bootloader]
 linker = "ld.lld"
 rustflags = [
-    "-C",
-    "link-arg=-Tlinker.ld",
-    "-C",
-    "relocation-model=static",
-    "-C",
-    "link-arg=-nostdlib",
-    "-C",
-    "link-arg=-static",
-    "-C",
-    "link-arg=elf_i386",
-    "-C",
-    "link-arg=--build-id=none",
-    "-C",
-    "panic=abort",
+    "-Cpanic=abort",
+    "-Crelocation-model=static",
+    "-Clink-arg=-Tlinker.ld",
+    "-Clink-arg=-nostdlib",
+    "-Clink-arg=-static",
+    "-Clink-arg=--build-id=none",
 ]

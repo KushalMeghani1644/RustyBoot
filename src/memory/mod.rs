@@ -1,4 +1,5 @@
 pub mod manager;
+pub mod mem;
 
 pub fn init() {
     // Initialize basic memory management
