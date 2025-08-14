@@ -13,7 +13,8 @@ This project is a part of the [Rusty-Suite](https://github.com/KushalMeghani1644
 
 ✅ Reads disk sectors directly  
 ✅ Detects EXT2/3/4 partitions by parsing the superblock  
-❌ Kernel loading not implemented yet
+✅ Supports loading kernel
+✅ Basic memory management.
 
 ⚠️ This bootloader is still **under active development**.  
 Use it only for educational or experimental purposes.
