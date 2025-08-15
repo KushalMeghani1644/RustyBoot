@@ -19,6 +19,10 @@ This project is a part of the [Rusty-Suite](https://github.com/KushalMeghani1644
 ⚠️ This bootloader is still **under active development**.  
 Use it only for educational or experimental purposes.
 
+## Trademark Notice
+The names “Rusty-Suite”, “RustyTodos”, “RustyBoot”, and “Rusty-Checker” are part of this project’s identity.  
+See [TRADEMARK.md](TRADEMARK.md) for details.
+
 ---
 
 ## 🛠️ Build & Run
