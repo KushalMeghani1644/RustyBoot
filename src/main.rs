@@ -3,6 +3,7 @@
 
 use core::panic::PanicInfo;
 
+use crate::boot::mbr;
 mod boot;
 mod drivers;
 mod fs;
@@ -28,6 +29,17 @@ pub extern "C" fn _start() -> ! {
 
     // Init Disk
     drivers::disk::init();
+    // Probe and print MBR info
+    if let Ok(info) = mbr::probe() {
+        mbr::debug_print(&info);
+
+        if let Some((_idx, part)) = mbr::find_active_partition(&info) {
+            drivers::vga::print_string("Active partition found.\n");
+            // You can pass `part.starting_lba` to your stage2 loader later
+        }
+    } else {
+        drivers::vga::print_string("Failed to read MBR.\n");
+    }
 
     // Init Filesystem
     match fs::ext::init() {
