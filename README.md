@@ -3,7 +3,7 @@
 **RustyBoot** is a low-level bootloader written in **Rust**, designed to boot from **EXT-based partitions** (ext2/ext3/ext4).  
 It currently supports **detecting EXT partitions** by reading and parsing the on-disk **superblock**, with plans to load kernel files in the future.
 
-This project is a part of the [Rusty-Suite](rusty-suite.tech) and is built for learning, experimentation, and low-level OS development.
+This project is a part of the [Rusty-Suite](github.com/KushalMeghani1644) and is built for learning, experimentation, and low-level OS development.
 
 ---
 
