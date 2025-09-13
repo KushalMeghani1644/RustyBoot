@@ -30,19 +30,20 @@ pub extern "C" fn _start() -> ! {
     // Init Disk
     drivers::disk::init();
     // Probe and print MBR info
+    let mut part_lba: u32 = 0;
     if let Ok(info) = mbr::probe() {
         mbr::debug_print(&info);
 
         if let Some((_idx, part)) = mbr::find_active_partition(&info) {
             drivers::vga::print_string("Active partition found.\n");
-            // You can pass `part.starting_lba` to your stage2 loader later
+            part_lba = part.starting_lba;
         }
     } else {
         drivers::vga::print_string("Failed to read MBR.\n");
     }
 
-    // Init Filesystem
-    match fs::ext::init() {
+    // Init Filesystem (use active partition LBA if available)
+    match fs::ext::init_with_lba(part_lba) {
         Ok(_) => drivers::vga::print_string("EXT filesystem detected\n"),
         Err(_) => {
             drivers::vga::print_string("Failed to detect EXT filesystem\n");
