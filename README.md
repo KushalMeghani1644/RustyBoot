@@ -132,4 +132,4 @@ The names Rusty-Suite, RustyTodos, RustyBoot, and Rusty-Checker are part of this
 
 GPLv3. See [LICENSE](LICENSE).
 
-Built with love in Rust.
+Built with ❤️ in Rust.
