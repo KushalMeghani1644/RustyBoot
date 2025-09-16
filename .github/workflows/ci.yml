@@ -13,7 +13,7 @@ jobs:
     steps:
       # Checkout the repository
       - name: Checkout code
-        uses: actions/checkout@v4  # Updated to v4
+        uses: actions/checkout@v4
       # Cache Rust dependencies for faster builds
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -26,9 +26,12 @@ jobs:
       # Set up Rust
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+      # Add the custom target
+      - name: Add i686-bootloader target
+        run: rustup target add i686-bootloader
       # Build the project
       - name: Build RustyBoot
         run: cargo build --all
-      # Run tests
+      # Run tests (might need to specify host target)
       - name: Run tests
-        run: cargo test --all
+        run: cargo test --all --target x86_64-unknown-linux-gnu
