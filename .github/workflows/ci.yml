@@ -1,5 +1,4 @@
 name: RustyBoot CI
-
 # Trigger on any push or pull request
 on:
   push:
@@ -8,16 +7,13 @@ on:
   pull_request:
     branches:
       - master
-
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
     steps:
       # Checkout the repository
       - name: Checkout code
-        uses: actions/checkout@v3
-
+        uses: actions/checkout@v4  # Updated to v4
       # Cache Rust dependencies for faster builds
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -25,18 +21,14 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
       # Set up Rust
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          rust-version: stable
-
+        uses: dtolnay/rust-toolchain@stable
       # Build the project
       - name: Build RustyBoot
         run: cargo build --all
-
       # Run tests
       - name: Run tests
         run: cargo test --all
