@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-spin = "0.9.3"
+spin = "0.10.0"
+uefi = "0.35.0"
+uefi-services = "0.26.0"
 [profile.dev]
 panic = "abort"
 
