@@ -72,6 +72,29 @@ fn efi_main(image_handle: Handle, st: SystemTable<Boot>) -> Status {
                 Err(e) => {
                     writeln!(stdout, "[uefi][fs] Failed to open {:?}", e).ok();
                 }
+    // Init Disk
+    drivers::disk::init();
+    // Probe and print MBR info
+    let mut part_lba: u32 = 0;
+    if let Ok(info) = mbr::probe() {
+        mbr::debug_print(&info);
+
+        if let Some((_idx, part)) = mbr::find_active_partition(&info) {
+            drivers::vga::print_string("Active partition found.\n");
+            part_lba = part.starting_lba;
+        }
+    } else {
+        drivers::vga::print_string("Failed to read MBR.\n");
+    }
+
+    // Init Filesystem (use active partition LBA if available)
+    match fs::ext::init_with_lba(part_lba) {
+        Ok(_) => drivers::vga::print_string("EXT filesystem detected\n"),
+        Err(_) => {
+            drivers::vga::print_string("Failed to detect EXT filesystem\n");
+            match fs::fat::init() {
+                Ok(_) => drivers::vga::print_string("FAT filesystem detected\n"),
+                Err(_) => panic!("No supported filesystem found"),
             }
         }
         Err(_) => {
