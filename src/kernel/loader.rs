@@ -1,222 +1,113 @@
-use crate::{drivers, fs, memory};
+#[allow(dead_code)]
 
-const KERNEL_PATHS: &[&str] = &["/boot/vmlinuz", "/boot/kernel", "/kernel", "/boot/bzImage"];
+use uefi::prelude::*;
+use uefi::proto::media::file::{Directory, File, FileModule, FileAttribute, FileInfo};
+use uefi::table::boot::{AllocateType, MemoryType};
 
-pub fn find_and_load_kernel() -> Result<u32, &'static str> {
-    for path in KERNEL_PATHS {
-        drivers::vga::print_string("Trying: ");
-        drivers::vga::print_string(path);
-        drivers::vga::print_string("\n");
+use core::ptr::copy_nonoverlapping;
 
-        match load_kernel_from_path(path) {
-            Ok(entry_point) => return Ok(entry_point),
-            Err(_) => continue,
+/// Predefined kernel paths
+const KERNEL_PATHS: &[&str] = &["/EFI/BOOT/KERNEL.EFI", "/kernel.elf", "/boot/kernel.elf"];
+
+/// Main entry: find and load kernel
+pub fn find_and_load_kernel(st: &SystemTable<Boot>, root: &mut Directory) -> Result<usize, &'static str> {
+    for &path in KERNEL_PATHS {
+        writeln!(st.stdout(), "Trying: {}", path).ok();
+        if let Ok(entry) = load_kernel_from_path(st, root, path) {
+            writeln!(st.stdout(), "Loaded kernel at 0x{:X}", entry).ok();
+            return Ok(entry);
         }
     }
     Err("No kernel found")
 }
 
-fn load_kernel_from_path(path: &str) -> Result<u32, &'static str> {
-    // Read kernel file
-    let kernel_buffer = fs::ext::read_file(path).map_err(|_| "Failed to read kernel file")?;
+/// Load kernel from a given path
+fn load_kernel_from_path(st: &SystemTable<Boot>, root: &mut Directory, path: &str) -> Result<usize, &'static str> {
+    let kernel_buf = read_file_uefi(root, path)?;
+    writeln!(st.stdout(), "Kernel size: {} bytes", kernel_buf.len()).ok();
 
-    drivers::vga::print_string("Kernel file size: ");
-    print_file_size(kernel_buffer.as_slice().len());
-    drivers::vga::print_string("\n");
+    // Allocate pages for the kernel
+    let kernel_pages = (kernel_buf.len() + 0xFFF) / 0x1000; // round up
+    let kernel_addr = st.boot_services().allocate_pages(
+        AllocateType::AnyPages,
+        MemoryType::LOADER_DATA,
+        kernel_pages
+    ).map_err(|_| "Failed to allocate pages")?;
 
-    // Find suitable memory location for kernel
-    let kernel_load_addr = memory::find_kernel_address(kernel_buffer.as_slice().len())
-        .ok_or("Cannot find suitable kernel load address")?;
+    // Parse ELF64 and load segments
+    parse_and_load_elf64(kernel_buf.as_slice(), kernel_addr)?;
 
-    drivers::vga::print_string("Loading kernel at: 0x");
-    print_hex_usize(kernel_load_addr);
-    drivers::vga::print_string("\n");
-
-    // Parse ELF and get entry point
-    let entry_point = parse_and_load_elf(kernel_buffer.as_slice(), kernel_load_addr)?;
-
-    // Reserve the memory region for the kernel
-    memory::reserve_for_kernel(kernel_load_addr, kernel_buffer.as_slice().len())?;
-
-    Ok(entry_point)
+    Ok(kernel_addr)
 }
 
-fn parse_and_load_elf(data: &[u8], load_addr: usize) -> Result<u32, &'static str> {
-    if data.len() < 52 {
-        return Err("Invalid ELF file");
-    }
+/// Read a file from UEFI SimpleFileSystem
+fn read_file_uefi(root: &mut Directory, path: &str) -> Result<Vec<u8>, &'static str> {
+    use uefi::CStr16;
+    let mut buf16 = [0u16; 260];
+    let cpath = CStr16::from_str_with_buf(path, &mut buf16).map_err(|_| "Invalid path")?;
+    let file_handle = root.open(cpath, FileMode::Read, FileAttribute::empty()).map_err(|_| "Failed to open file")?;
+    
+    let mut file = match file_handle.into_type().map_err(|_| "Invalid file type")? {
+        File::Regular(f) => f,
+        _ => return Err("Not a regular file"),
+    };
 
-    // Check ELF magic
-    if &data[0..4] != b"\x7fELF" {
-        return Err("Not an ELF file");
-    }
+    let info = file.get_info::<FileInfo>().map_err(|_| "Failed to get file info")?;
+    let size = info.file_size() as usize;
+    let mut buf = vec![0u8; size];
+    file.read(&mut buf).map_err(|_| "Failed to read file")?;
+    Ok(buf)
+}
 
-    // Verify it's 32-bit ELF
-    if data[4] != 1 {
-        return Err("Only 32-bit ELF supported");
-    }
+/// Parse ELF64 and load PT_LOAD segments
+fn parse_and_load_elf64(data: &[u8], load_addr: usize) -> Result<usize, &'static str> {
+    if data.len() < 64 { return Err("ELF too small"); }
+    if &data[0..4] != b"\x7fELF" { return Err("Not ELF"); }
+    if data[4] != 2 { return Err("Not 64-bit ELF"); } // EI_CLASS
+    if data[5] != 1 { return Err("Not little-endian"); } // EI_DATA
 
-    // Verify it's little-endian
-    if data[5] != 1 {
-        return Err("Only little-endian ELF supported");
-    }
+    // Entry point offset 24
+    let entry = u64::from_le_bytes(data[24..32].try_into().unwrap()) as usize;
 
-    // Get entry point from ELF header (offset 24 for 32-bit ELF)
-    let entry_point = u32::from_le_bytes([data[24], data[25], data[26], data[27]]);
+    // Program header table
+    let ph_offset = u64::from_le_bytes(data[32..40].try_into().unwrap()) as usize;
+    let ph_entry_size = u16::from_le_bytes(data[54..56].try_into().unwrap()) as usize;
+    let ph_count = u16::from_le_bytes(data[56..58].try_into().unwrap()) as usize;
 
-    drivers::vga::print_string("ELF entry point: 0x");
-    print_hex_u32(entry_point);
-    drivers::vga::print_string("\n");
-
-    // Get program header table information
-    let ph_offset = u32::from_le_bytes([data[28], data[29], data[30], data[31]]) as usize;
-    let ph_size = u16::from_le_bytes([data[42], data[43]]) as usize;
-    let ph_count = u16::from_le_bytes([data[44], data[45]]) as usize;
-
-    drivers::vga::print_string("Loading ELF segments...\n");
-
-    // Process program headers (load segments)
     for i in 0..ph_count {
-        let ph_base = ph_offset + (i * ph_size);
-        if ph_base + 32 > data.len() {
-            continue;
-        }
+        let ph_base = ph_offset + i * ph_entry_size;
+        if ph_base + ph_entry_size > data.len() { continue; }
 
-        let ph_type = u32::from_le_bytes([
-            data[ph_base],
-            data[ph_base + 1],
-            data[ph_base + 2],
-            data[ph_base + 3],
-        ]);
+        let ph_type = u32::from_le_bytes(data[ph_base..ph_base+4].try_into().unwrap());
+        if ph_type != 1 { continue; } // PT_LOAD
 
-        // PT_LOAD = 1
-        if ph_type == 1 {
-            let file_offset = u32::from_le_bytes([
-                data[ph_base + 4],
-                data[ph_base + 5],
-                data[ph_base + 6],
-                data[ph_base + 7],
-            ]) as usize;
+        let file_offset = u64::from_le_bytes(data[ph_base+8..ph_base+16].try_into().unwrap()) as usize;
+        let virt_addr = u64::from_le_bytes(data[ph_base+16..ph_base+24].try_into().unwrap()) as usize;
+        let file_size = u64::from_le_bytes(data[ph_base+32..ph_base+40].try_into().unwrap()) as usize;
+        let mem_size = u64::from_le_bytes(data[ph_base+40..ph_base+48].try_into().unwrap()) as usize;
 
-            let virt_addr = u32::from_le_bytes([
-                data[ph_base + 8],
-                data[ph_base + 9],
-                data[ph_base + 10],
-                data[ph_base + 11],
-            ]) as usize;
-
-            let file_size = u32::from_le_bytes([
-                data[ph_base + 16],
-                data[ph_base + 17],
-                data[ph_base + 18],
-                data[ph_base + 19],
-            ]) as usize;
-
-            let mem_size = u32::from_le_bytes([
-                data[ph_base + 20],
-                data[ph_base + 21],
-                data[ph_base + 22],
-                data[ph_base + 23],
-            ]) as usize;
-
-            // Copy segment data to memory
-            if file_offset + file_size <= data.len() {
-                unsafe {
-                    crate::memory::mem::memcpy(
-                        virt_addr as *mut u8,
-                        data.as_ptr().add(file_offset),
-                        file_size,
-                    );
-
-                    // Zero out the rest if mem_size > file_size (BSS section)
-                    if mem_size > file_size {
-                        crate::memory::mem::memset(
-                            (virt_addr + file_size) as *mut u8,
-                            0,
-                            mem_size - file_size,
-                        );
-                    }
-                }
-
-                drivers::vga::print_string("Loaded segment: 0x");
-                print_hex_usize(virt_addr);
-                drivers::vga::print_string(" (");
-                print_file_size(mem_size);
-                drivers::vga::print_string(")\n");
+        unsafe {
+            // Copy segment
+            copy_nonoverlapping(data[file_offset..file_offset+file_size].as_ptr(), virt_addr as *mut u8, file_size);
+            // Zero BSS
+            if mem_size > file_size {
+                core::ptr::write_bytes((virt_addr + file_size) as *mut u8, 0, mem_size - file_size);
             }
         }
     }
 
-    Ok(entry_point)
+    Ok(entry)
 }
 
-pub fn jump_to_kernel(entry_point: u32) -> ! {
-    drivers::vga::print_string("Jumping to kernel at 0x");
-    print_hex_u32(entry_point);
-    drivers::vga::print_string("\n");
+/// Jump to kernel after exiting boot services
+pub fn jump_to_kernel(st: &SystemTable<Boot>, image_handle: Handle, entry_point: usize) -> ! {
+    let map_size = 4096 * 4;
+    let mut mem_map_buf = [0u8; 4096*4];
+    let (_key, _desc_iter) = st.boot_services().memory_map(&mut mem_map_buf)
+        .expect("Failed to get memory map");
 
-    // Print final memory statistics
-    memory::print_memory_stats();
+    st.exit_boot_services(image_handle, _key).expect("ExitBootServices failed");
 
-    unsafe {
-        core::arch::asm!(
-            "cli",
-            "mov esp, {stack}",
-            "push 0",
-            "jmp {entry}",
-            stack = const 0x90000,
-            entry = in(reg) entry_point,
-            options(noreturn)
-        );
-    }
-}
-
-// Helper functions for printing
-fn print_hex_u32(mut v: u32) {
-    const HEX: &[u8; 16] = b"0123456789ABCDEF";
-
-    for i in 0..8 {
-        let shift = 28 - (i * 4);
-        let nibble = ((v >> shift) & 0xF) as usize;
-        drivers::vga::print_char(HEX[nibble]);
-    }
-}
-
-fn print_hex_usize(v: usize) {
-    print_hex_u32(v as u32);
-}
-
-fn print_file_size(bytes: usize) {
-    if bytes >= 1024 * 1024 {
-        let mb = bytes / (1024 * 1024);
-        print_decimal(mb);
-        drivers::vga::print_string("MB");
-    } else if bytes >= 1024 {
-        let kb = bytes / 1024;
-        print_decimal(kb);
-        drivers::vga::print_string("KB");
-    } else {
-        print_decimal(bytes);
-        drivers::vga::print_string("B");
-    }
-}
-
-fn print_decimal(mut num: usize) {
-    if num == 0 {
-        drivers::vga::print_char(b'0');
-        return;
-    }
-
-    let mut digits = [0u8; 20];
-    let mut i = 0;
-
-    while num > 0 && i < digits.len() {
-        digits[i] = (num % 10) as u8 + b'0';
-        num /= 10;
-        i += 1;
-    }
-
-    for j in (0..i).rev() {
-        drivers::vga::print_char(digits[j]);
-    }
+    let kernel: extern "sysv64" fn() -> ! = unsafe { core::mem::transmute(entry_point) };
+    kernel();
 }
