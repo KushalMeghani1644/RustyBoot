@@ -5,6 +5,11 @@ RustyBoot probes the disk MBR, initializes a minimalist EXT2/3/4 reader, loads a
 It uses a tiny VGA text console and a minimal ATA PIO disk driver.  
 
 Part of the Rusty-Suite. Built for learning, experimentation, and low-level OS development.  
+---
+
+## WIP
+
+Working on: Porting RustyBoot to UEFI with EFI entry point and SimpleFileSystem kernel loading
 
 ---
 
